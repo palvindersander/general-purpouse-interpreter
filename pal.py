@@ -132,8 +132,8 @@ class token:
 		self.line = line
 
 	def toString(self):
-		return str(self.type) + " " + str(self.lexeme) + " " + str(self.literal);
-		
+		return str(self.type) + " " + str(self.lexeme) + " " + str(self.literal)
+
 class interpreter:
 	'''
 	attrs: scanner, hadError
