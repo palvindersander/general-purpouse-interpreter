@@ -76,7 +76,7 @@ class scanner:
 	def identifier(self):
 		while self.peek().isalpha() or self.peek().isnumeric() or self.peek() == "_":
 			self.current += 1
-		string = self.source[self.start:self.current+1]
+		string = self.source[self.start:self.current]
 		if string in Identifiers:
 			self.addToken(Identifiers[string], None)
 		else:
@@ -134,6 +134,21 @@ class token:
 	def toString(self):
 		return str(self.type) + " " + str(self.lexeme) + " " + str(self.literal)
 
+class parser():
+	'''
+	attrs: tokens
+	'''
+	def __init__(self, tokens):
+		self.tokens = tokens
+		self.current = 0
+
+	def expression(self):
+		return self.equality()
+
+	def equality(self):
+		comparison = self.comparison()
+		
+
 class interpreter:
 	'''
 	attrs: scanner, hadError
@@ -162,6 +177,7 @@ class interpreter:
 		tokens = self.scanner.scanTokens()
 		for token in tokens:
 			print(token.toString())
+		self.parser = parser(tokens)
 
 	@staticmethod
 	def error(line, where, message):
