@@ -156,6 +156,9 @@ class binaryExpr(expr):
 		self.token = self.op = op
 		self.right = right
 
+	def toString(self):
+		return "((" + self.left.toString() + ")(" + str(self.token.toString()) + ")(" + self.right.toString() + "))"
+
 
 class unaryExpr(expr):
 	'''
@@ -166,6 +169,9 @@ class unaryExpr(expr):
 		self.token = self.op = op
 		self.right = right
 
+	def toString(self):
+		return "((" + str(self.token.toString()) + ")(" + self.right.toString() + "))"
+
 
 class literalExpr(expr):
 	'''
@@ -175,6 +181,9 @@ class literalExpr(expr):
 	def __init__(self, value):
 		self.value = value
 
+	def toString(self):
+		return "(" + str(self.value) + ")"
+
 
 class groupingExpr(expr):
 	'''
@@ -183,6 +192,9 @@ class groupingExpr(expr):
 
 	def __init__(self, expression):
 		self.expression = expression
+	
+	def toString(self):
+		return "(" + self.expression.toString() + ")"
 
 
 class parser():
@@ -332,6 +344,11 @@ class interpreter:
 				print(token.toString())
 		tokenParser = parser(tokens)
 		expression = tokenParser.parse()
+		if self.args.verbose:
+			print(expression.toString())
+		expression = tokenParser.parse()
+		if self.args.verbose:
+			print(expression.toString())
 
 	@staticmethod
 	def scannerError(line, where, message):
@@ -340,7 +357,7 @@ class interpreter:
 		exit()
 
 	@staticmethod
-	def parserError(token, message):
+	def parserError(token,  message):
 		if token.type == "EOF":
 			print("[line " + str(token.line) + "] Error" + " at end", str(message))
 		else:
