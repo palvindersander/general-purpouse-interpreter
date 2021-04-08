@@ -13,6 +13,14 @@ Identifiers = {"and": "AND", "class": "CLASS", "else": "ELSE", "false": "FALSE",
 			   "or": "OR", "print": "PRINT", "return": "RETURN", "super": "SUPER", "this": "THIS", "true": "TRUE", "var": "VAR", "while": "WHILE"}
 
 
+class parseError(RuntimeError):
+	pass
+
+class interpreterRuntimeError(RuntimeError):
+	def __init__(self, token, message):
+		self.message = message
+		self.token = token
+
 class scanner:
 	'''
 	attrs: source(string), tokens(token), start(int), current(int), line(int)
@@ -75,7 +83,7 @@ class scanner:
 				self.identifier()
 				return
 			else:
-				interpreter.scannerError(self.line, "", "Unexpected character.")
+				interpreter.error(self.line, "Unexpected character.")
 
 	def identifier(self):
 		while self.peek().isalpha() or self.peek().isnumeric() or self.peek() == "_":
@@ -93,7 +101,7 @@ class scanner:
 			self.current += 1
 			while self.peek().isnumeric():
 				self.current += 1
-		self.addToken("NUMBER", int(self.source[self.start:self.current]))
+		self.addToken("NUMBER", float(self.source[self.start:self.current]))
 
 	def peekNext(self):
 		if self.current + 1 >= len(self.source):
@@ -106,7 +114,7 @@ class scanner:
 				self.line += 1
 			self.current += 1
 		if self.current >= len(self.source):
-			interpreter.scannerError(self.line, "", "Unterminated string.")
+			interpreter.error(self.line, "Unterminated string.")
 			return
 		self.current += 1
 		self.addToken("STRING", self.source[self.start+1:self.current-1])
@@ -157,7 +165,7 @@ class binaryExpr(expr):
 		self.right = right
 
 	def toString(self):
-		return "((" + self.left.toString() + ")(" + str(self.token.toString()) + ")(" + self.right.toString() + "))"
+		return "((" + self.left.toString() + "),(" + str(self.token.toString()) + "),(" + self.right.toString() + "))"
 
 
 class unaryExpr(expr):
@@ -170,7 +178,7 @@ class unaryExpr(expr):
 		self.right = right
 
 	def toString(self):
-		return "((" + str(self.token.toString()) + ")(" + self.right.toString() + "))"
+		return "((" + str(self.token.toString()) + "),(" + self.right.toString() + "))"
 
 
 class literalExpr(expr):
@@ -207,7 +215,10 @@ class parser():
 		self.current = 0
 
 	def parse(self):
-		return self.expression()
+		try:
+			return self.expression()
+		except parseError:
+			return None
 
 	def expression(self):
 		return self.equality()
@@ -259,19 +270,23 @@ class parser():
 		elif self.match(["NIL"]):
 			return literalExpr(None)
 		elif self.match(["NUMBER"]):
-			return literalExpr(int(self.previous().literal))
+			return literalExpr(float(self.previous().literal))
 		elif self.match(["STRING"]):
 			return literalExpr(str(self.previous().literal))
 		elif self.match(["LEFT_PAREN"]):
 			expr = self.expression()
 			self.consume("RIGHT_PAREN", "Expect ')' after expression.")
 			return groupingExpr(expr)
-		interpreter.parserError(self.peek(), "Expect expression.")
+		raise self.error(self.peek(), "Expect expression.")
+
+	def error(self, peek, message):
+		interpreter.parseError(peek, message)
+		return parseError()
 
 	def consume(self, type, message):
 		if self.check(type):
 			return self.advance()
-		interpreter.parserError(self.peek(), message)
+		raise self.error(self.peek(), message)
 
 	def synchronize(self):
 		self.advance()
@@ -314,6 +329,9 @@ class interpreter:
 	attrs: scanner, hadError
 	'''
 
+	hadError = False
+	hadRuntimeError = False
+
 	def __init__(self):
 		# input arguments
 		argParser = argparse.ArgumentParser(
@@ -328,41 +346,152 @@ class interpreter:
 		if inputFilePath != None:
 			try:
 				self.scanner = scanner(inputFilePath)
+				if self.args.verbose:
+					print(self.scanner.source)
 				start = timer()
 				self.run(inputFilePath)
 				end = timer()
 				if self.args.verbose:
-					print(self.scanner.source)
 					print("Execution finished in", (end-start), "seconds")
 			except Exception as e:
 				print(e)
 
 	def run(self, inputFilePath):
+		if interpreter.hadError or interpreter.hadRuntimeError:
+			exit()
 		tokens = self.scanner.scanTokens()
 		for token in tokens:
 			if self.args.verbose:
 				print(token.toString())
 		tokenParser = parser(tokens)
 		expression = tokenParser.parse()
+		if interpreter.hadError:
+			return
 		if self.args.verbose:
 			print(expression.toString())
-		expression = tokenParser.parse()
-		if self.args.verbose:
-			print(expression.toString())
+		self.interpret(expression)
+
+	def interpret(self, expression):
+		try:
+			value = self.evaluate(expression)
+			print(self.stringify(value))
+		except interpreterRuntimeError as e:
+			interpreter.runTimeError(e)
+
+	def stringify(self, obj):
+		if obj == None:
+			return "nil"
+		if type(obj) is float:
+			text = str(obj)
+			if len(text) > 2 and text[-2::] == ".0":
+				text = text[0:-2]
+			return text
+		return str(obj)
+
+	def visitLiteralExpr(self, expression):
+		return expression.value
+
+	def visitGroupingExpr(self, expression):
+		return self.evaluate(expression.expression)
+
+	def visitUnaryExpr(self, expression):
+		right = self.evaluate(expression.right)
+		if expression.op.type == "MINUS":
+			self.checkNumberOperand(expression.op, right)
+			return -1*float(right)
+		elif expression.op.type == "BANG":
+			return not self.isTruthy(right)
+		return None
+
+	def isTruthy(self, object):
+		if object == None:
+			return False
+		elif type(object) is bool:
+			return bool(object)
+		return True
+
+	def visitBinaryExpr(self, expression):
+		left = self.evaluate(expression.left)
+		right = self.evaluate(expression.right)
+		if expression.op.type == "MINUS":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) - float(right)
+		elif expression.op.type == "SLASH":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) / float(right)
+		elif expression.op.type == "STAR":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) * float(right)
+		elif expression.op.type == "PLUS":
+			if type(left) is float and type(right) is float:
+				return float(left) + float(right)
+			elif type(left) is str and type(right) is str:
+				return str(left) + str(right)
+			raise interpreterRuntimeError(expression.op, "Operands must be two numbers or two strings.")
+		elif expression.op.type == "GREATER":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) > float(right)
+		elif expression.op.type == "GREATER_EQUAL":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) >= float(right)
+		elif expression.op.type == "LESS":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) < float(right)
+		elif expression.op.type == "LESS_EQUAL":
+			self.checkNumberOperands(expression.op, left, right)
+			return float(left) <= float(right)
+		elif expression.op.type == "BANG_EQUAL":
+			return not self.isEqual(left, right)
+		elif expression.op.type == "EQUAL_EQUAL":
+			return self.isEqual(left, right)
+		return None
+
+	def checkNumberOperand(self, op, operand):
+		if type(operand) is float:
+			return
+		raise interpreterRuntimeError(op, "Operand must be a number.")
+
+	def checkNumberOperands(self, op, left, right):
+		if type(left) is float and type(right) is float:
+			return
+		raise interpreterRuntimeError(op, "Operands must be numbers")
+
+	def isEqual(self, left, right):
+		if left == None and right == None:
+			return True
+		if left == None:
+			return False
+		return left == right
+
+	def evaluate(self, expression):
+		if type(expression) is groupingExpr:
+			return self.visitGroupingExpr(expression)
+		elif type(expression) is literalExpr:
+			return self.visitLiteralExpr(expression)
+		elif type(expression) is binaryExpr:
+			return self.visitBinaryExpr(expression)
+		elif type(expression) is unaryExpr:
+			return self.visitUnaryExpr(expression)
 
 	@staticmethod
-	def scannerError(line, where, message):
-		print("[line " + str(line) + "] Error" + str(where) + ": " + str(message))
-		# self.hadError = True
-		exit()
-
-	@staticmethod
-	def parserError(token,  message):
+	def parseError(token,  message):
 		if token.type == "EOF":
-			print("[line " + str(token.line) + "] Error" + " at end", str(message))
+			interpreter.report(str(token.line), " at end", str(message))
 		else:
-			print("[line " + str(token.line) + "] Error" + " at '" + str(token.lexeme) + "'", str(message))
-		exit()
+			interpreter.report(str(token.line), " at '" + str(token.lexeme) + "'", str(message))
 
+	@staticmethod
+	def error(line, message):
+		interpreter.report(line,"",message)
+
+	@staticmethod
+	def report(line, where, message):
+		print("[line " + str(line) + "] Error" + str(where) + ": " + str(message))
+		interpreter.hadError = True
+	
+	@staticmethod
+	def runTimeError(error):
+		print(str(error.message) + " [line " + str(error.token.line) + "]")
+		interpreter.hadRuntimeError = True
 
 interpreter()
