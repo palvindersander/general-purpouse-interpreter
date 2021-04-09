@@ -23,79 +23,67 @@ Interpreter written in Python for a dynamically typed, imperative language using
 
 ## Sample code and output:
 ```python
-var v = 1;
-if (v == 2 and true == true)
-	print "hello";
-else
-	print "world";
+var a = 0;
+var temp;
 
-var a = "global a";
-{
-	var a = "outer a";
-	{
-		var a = "inner a";
-		print a;	
-	}
-	print a;
+for (var b = 1; a < 100; b = temp + b) {
+  print a;
+  temp = a;
+  a = b;
 }
-print a;
 ```
 ```text
 VAR var None
-IDENTIFIER v None
+IDENTIFIER a None
+EQUAL = None
+NUMBER 0 0.0
+SEMICOLON ; None
+VAR var None
+IDENTIFIER temp None
+SEMICOLON ; None
+FOR for None
+LEFT_PAREN ( None
+VAR var None
+IDENTIFIER b None
 EQUAL = None
 NUMBER 1 1.0
 SEMICOLON ; None
-IF if None
-LEFT_PAREN ( None
-IDENTIFIER v None
-EQUAL_EQUAL == None
-NUMBER 2 2.0
-AND and None
-TRUE true None
-EQUAL_EQUAL == None
-TRUE true None
+IDENTIFIER a None
+LESS < None
+NUMBER 100 100.0
+SEMICOLON ; None
+IDENTIFIER b None
+EQUAL = None
+IDENTIFIER temp None
+PLUS + None
+IDENTIFIER b None
 RIGHT_PAREN ) None
-PRINT print None
-STRING "hello" hello
-SEMICOLON ; None
-ELSE else None
-PRINT print None
-STRING "world" world
-SEMICOLON ; None
-VAR var None
-IDENTIFIER a None
-EQUAL = None
-STRING "global a" global a
-SEMICOLON ; None
 LEFT_BRACE { None
-VAR var None
-IDENTIFIER a None
-EQUAL = None
-STRING "outer a" outer a
-SEMICOLON ; None
-LEFT_BRACE { None
-VAR var None
-IDENTIFIER a None
-EQUAL = None
-STRING "inner a" inner a
-SEMICOLON ; None
 PRINT print None
 IDENTIFIER a None
+SEMICOLON ; None
+IDENTIFIER temp None
+EQUAL = None
+IDENTIFIER a None
+SEMICOLON ; None
+IDENTIFIER a None
+EQUAL = None
+IDENTIFIER b None
 SEMICOLON ; None
 RIGHT_BRACE } None
-PRINT print None
-IDENTIFIER a None
-SEMICOLON ; None
-RIGHT_BRACE } None
-PRINT print None
-IDENTIFIER a None
-SEMICOLON ; None
 EOF  None
-[<__main__.variableStatement object at 0x7f25d15576d0>, <__main__.ifStatement object at 0x7f25d1557b50>, <__main__.variableStatement object at 0x7f25d1557c10>, <__main__.blockStatement object at 0x7f25d1557fd0>, <__main__.printStatement object at 0x7f25d155b0d0>]
-world
-inner a
-outer a
-global a
-Execution finished in 0.010862700000870973 seconds
+[<__main__.variableStatement object at 0x7fcd18af73a0>, <__main__.variableStatement object at 0x7fcd18af7400>, <__main__.blockStatement object at 0x7ffcd18af7c40>]
+0
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+89
+Execution finished in 0.00897779999991144 seconds
 ```
