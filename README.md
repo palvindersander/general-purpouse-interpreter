@@ -9,7 +9,7 @@ Interpreter written in Python for a dynamically typed, imperative language using
 5. logical operators
 
 ## Future Work:
-1. input statement
+1. inputs, arrays, maps, sorting 
 2. different parser implementation (LR(0), LL(1))
 3. functions
 4. iteration
@@ -19,6 +19,7 @@ Interpreter written in Python for a dynamically typed, imperative language using
 8. libraries
 9. generic syntax - nlp based parser
 10. lambda-calculus interpreter
+11. meta-programming parser
 
 ## Sample code and output:
 ```python
