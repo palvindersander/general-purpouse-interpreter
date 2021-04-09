@@ -1,9 +1,9 @@
 import argparse
-import re
 import os
+import re
 import sys
-from timeit import default_timer as timer
 from enum import Enum
+from timeit import default_timer as timer
 
 paths = [".", "./lib"]
 TokenType = Enum("TokenType", "LEFT_PAREN RIGHT_PAREN LEFT_BRACE RIGHT_BRACE COMMA DOT MINUS PLUS SEMICOLON SLASH STAR BANG BANG_EQUAL EQUAL EQUAL_EQUAL GREATER GREATER_EQUAL LESS LESS_EQUAL IDENTIFIER STRING NUMBER AND CLASS ELSE FALSE FUN FOR IF NIL OR PRINT RETURN SUPER THIS TRUE VAR WHILE EOF")
@@ -158,6 +158,17 @@ class expressionStatement(statement):
 		return self.expression.toString()
 
 
+class ifStatement(statement):
+	'''
+	attrs: condition(expr), thenBranch(statement), elseBranch(statement)
+	'''
+
+	def __init__(self, condition, thenBranch, elseBranch):
+		self.condition = condition
+		self.thenBranch = thenBranch
+		self.elseBranch = elseBranch
+
+
 class printStatement(statement):
 	'''
 	attrs: expression(expr)
@@ -228,9 +239,11 @@ class parser():
 		return variableStatement(name, initializer)
 
 	def statement(self):
-		if self.match(["PRINT"]):
+		if self.match(["IF"]):
+			return self.ifStatement()
+		elif self.match(["PRINT"]):
 			return self.printStatement()
-		if self.match(["LEFT_BRACE"]):
+		elif self.match(["LEFT_BRACE"]):
 			return blockStatement(self.block())
 		return self.expressionStatement()
 
@@ -240,6 +253,16 @@ class parser():
 			statements.append(self.declaration())
 		self.consume("RIGHT_BRACE", "Expect '}' after block.")
 		return statements
+
+	def ifStatement(self):
+		self.consume("LEFT_PAREN", "Expect '(' after 'if'.")
+		condition = self.expression()
+		self.consume("RIGHT_PAREN", "Expect ')' after if condition.")
+		thenBranch = self.statement()
+		elseBranch = None
+		if self.match(["ELSE"]):
+			elseBranch = self.statement()
+		return ifStatement(condition, thenBranch, elseBranch)
 
 	def printStatement(self):
 		value = self.expression()
@@ -261,7 +284,7 @@ class parser():
 		return self.assignment()
 
 	def assignment(self):
-		expr = self.equality()
+		expr = self.lOr()
 		if self.match(["EQUAL"]):
 			equals = self.previous()
 			value = self.assignment()
@@ -271,6 +294,21 @@ class parser():
 			self.error(equals, "Invalid assignment target.")
 		return expr
 
+	def lOr(self):
+		expr = self.lAnd()
+		while self.match(["OR"]):
+			operator = self.previous()
+			right = self.lAnd()
+			expr = logicalExpr(expr, operator, right)
+		return expr
+
+	def lAnd(self):
+		expr = self.equality()
+		while self.match(["AND"]):
+			operator = self.previous()
+			right = self.equality()
+			expr = logicalExpr(expr, operator, right)
+		return expr
 
 	def equality(self):
 		expr = self.comparison()
@@ -454,11 +492,28 @@ class interpreter:
 		finally:
 			self.enviroment = previous
 
+	def visitIfStatement(self, statement):
+		if self.isTruthy(self.evaluate(statement.condition)):
+			self.execute(statement.thenBranch)
+		elif statement.elseBranch != None:
+			self.execute(statement.elseBranch)
+		return None
+
+	def visitLogicalExpr(self, expression):
+		left = self.evaluate(expression.left)
+		if expression.op.type == "OR":
+			if self.isTruthy(left):
+				return left
+		else:
+			if not self.isTruthy(left):
+				return left
+		return self.evaluate(expression.right)
+
 	def visitPrintStatement(self, statement):
 		value = self.evaluate(statement.expression)
 		print(self.stringify(value))
 		return None
-		
+
 	def visitVarStatement(self, statement):
 		value = None
 		if statement.initializer != None:
@@ -571,6 +626,10 @@ class interpreter:
 			return self.visitAssignExpr(obj)
 		elif type(obj) is blockStatement:
 			return self.visitBlockStatement(obj)
+		elif type(obj) is ifStatement:
+			return self.visitIfStatement(obj)
+		elif type(obj) is logicalExpr:
+			return self.visitLogicalExpr(obj)
 
 	@staticmethod
 	def parseError(token,  message):
@@ -614,6 +673,20 @@ class assignExpr(expr):
 
 
 class binaryExpr(expr):
+	'''
+	attrs: left(expr),op(token),right(expr)
+	'''
+
+	def __init__(self, left, op, right):
+		self.left = left
+		self.token = self.op = op
+		self.right = right
+
+	def toString(self):
+		return "((" + self.left.toString() + "),(" + str(self.token.toString()) + "),(" + self.right.toString() + "))"
+
+
+class logicalExpr(expr):
 	'''
 	attrs: left(expr),op(token),right(expr)
 	'''
@@ -671,7 +744,7 @@ class variableExpr(expr):
 
 	def __init__(self, name):
 		self.name = name
-	
+
 	def toString(self):
 		return "(" + self.name.toString() + ")"
 
@@ -680,7 +753,8 @@ class enviroment():
 	'''
 	attrs: values(dict), enclosing(enviroment)
 	'''
-	def __init__(self, enclosing = None):
+
+	def __init__(self, enclosing=None):
 		self.values = {}
 		if enclosing == None:
 			self.enclosing = None
@@ -695,7 +769,8 @@ class enviroment():
 			return self.values[name.lexeme]
 		if self.enclosing != None:
 			return self.enclosing.get(name)
-		raise interpreterRuntimeError(name, "Undefined variable '" + str(name.lexeme) + "'.")
+		raise interpreterRuntimeError(
+			name, "Undefined variable '" + str(name.lexeme) + "'.")
 
 	def assign(self, name, value):
 		if name.lexeme in self.values:
@@ -704,7 +779,8 @@ class enviroment():
 		if self.enclosing != None:
 			self.enclosing.assign(name, value)
 			return
-		raise interpreterRuntimeError(name, "Undefined variable '" + str(name.lexeme) + "'.")
+		raise interpreterRuntimeError(
+			name, "Undefined variable '" + str(name.lexeme) + "'.")
 
 
 class pal():
