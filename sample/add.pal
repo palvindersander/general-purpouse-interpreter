@@ -1,2 +1,16 @@
 var v = 1;
-if (v == 2) print "hi"; else print("bye");
+if (v == 2 and true == true)
+	print "hello";
+else
+	print "world";
+
+var a = "global a";
+{
+	var a = "outer a";
+	{
+		var a = "inner a";
+		print a;	
+	}
+	print a;
+}
+print a;
