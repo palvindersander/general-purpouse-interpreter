@@ -39,7 +39,7 @@ var a = "global a";
 }
 print a;
 ```
-```shell
+```text
 VAR var None
 IDENTIFIER v None
 EQUAL = None
