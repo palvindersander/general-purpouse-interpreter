@@ -63,8 +63,8 @@ class scanner:
 		elif c in TokenChar:
 			self.addToken(TokenChar[c], None)
 			return
-		elif c == "0":
-			if self.match("o") == "r":
+		elif c == "o":
+			if self.match("r"):
 				self.addToken("OR", None)
 				return
 		else:
@@ -167,6 +167,22 @@ class ifStatement(statement):
 		self.condition = condition
 		self.thenBranch = thenBranch
 		self.elseBranch = elseBranch
+	
+	def toString(self):
+		return "if " + self.condition.toString()
+
+
+class whileStatement(statement):
+	'''
+	attrs: condition(expr), body(statement)
+	'''
+
+	def __init__(self, condition, body):
+		self.condition = condition
+		self.body = body
+
+	def toString(self):
+		return "while " + self.condition.toString()
 
 
 class printStatement(statement):
@@ -239,13 +255,52 @@ class parser():
 		return variableStatement(name, initializer)
 
 	def statement(self):
-		if self.match(["IF"]):
+		if self.match(["FOR"]):
+			return self.forStatement()
+		elif self.match(["IF"]):
 			return self.ifStatement()
 		elif self.match(["PRINT"]):
 			return self.printStatement()
+		elif self.match(["WHILE"]):
+			return self.whileStatement()
 		elif self.match(["LEFT_BRACE"]):
 			return blockStatement(self.block())
 		return self.expressionStatement()
+
+	def forStatement(self):
+		self.consume("LEFT_PAREN", "Expect '(' after 'for'.")
+		initializer = None
+		if self.match(["SEMICOLON"]):
+			initializer = None
+		elif self.match(["VAR"]):
+			initializer = self.varDeclaration()
+		else:
+			initializer = self.expressionStatement()
+		condition = None
+		if not self.check("SEMICOLON"):
+			condition = self.expression()
+		self.consume("SEMICOLON", "Expect ';' after loop condition.")
+		increment = None
+		if not self.check("RIGHT_PAREN"):
+			increment = self.expression()
+		self. consume("RIGHT_PAREN", "Expect ')' after for clauses.")
+		body = self.statement()
+
+		if increment != None:
+			body = blockStatement([body,expressionStatement(increment)])
+		if condition == None:
+			condition = literalExpr(True)
+		body = whileStatement(condition, body)
+		if initializer != None:
+			body = blockStatement([initializer, body])
+		return body
+
+	def whileStatement(self):
+		self.consume("LEFT_PAREN", "Expect '(' after 'while'.")
+		condition = self.expression()
+		self.consume("RIGHT_PAREN", "Expect ')' after condition.")
+		body = self.statement()
+		return whileStatement(condition, body)
 
 	def block(self):
 		statements = []
@@ -483,6 +538,11 @@ class interpreter:
 		self.executeBlock(statement.statements, enviroment(self.enviroment))
 		return None
 
+	def visitWhileStatement(self, statement):
+		while self.isTruthy(self.evaluate(statement.condition)):
+			self.execute(statement.body)
+		return None
+
 	def executeBlock(self, statements, enviroment):
 		previous = self.enviroment
 		try:
@@ -630,6 +690,8 @@ class interpreter:
 			return self.visitIfStatement(obj)
 		elif type(obj) is logicalExpr:
 			return self.visitLogicalExpr(obj)
+		elif type(obj) is whileStatement:
+			return self.visitWhileStatement(obj)
 
 	@staticmethod
 	def parseError(token,  message):

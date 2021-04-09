@@ -7,19 +7,19 @@ Interpreter written in Python for a dynamically typed, imperative language using
 3. conditionals
 4. print statements
 5. logical operators
+6. iteration
 
 ## Future Work:
 1. inputs, arrays, maps, sorting 
 2. different parser implementation (LR(0), LL(1))
 3. functions
-4. iteration
-5. cli ide
-6. compiler using modern parser generators
-7. functional paradigm
-8. libraries
-9. generic syntax - nlp based parser
-10. lambda-calculus interpreter
-11. meta-programming parser
+4. cli ide
+5. compiler using modern parser generators
+6. functional paradigm
+7. libraries
+8. generic syntax - nlp based parser
+9. lambda-calculus interpreter
+10. meta-programming parser
 
 ## Sample code and output:
 ```python
