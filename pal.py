@@ -6,9 +6,9 @@ from enum import Enum
 from timeit import default_timer as timer
 
 paths = [".", "./lib"]
-TokenType = Enum("TokenType", "LEFT_PAREN RIGHT_PAREN LEFT_BRACE RIGHT_BRACE COMMA DOT MINUS PLUS SEMICOLON SLASH STAR BANG BANG_EQUAL EQUAL EQUAL_EQUAL GREATER GREATER_EQUAL LESS LESS_EQUAL IDENTIFIER STRING NUMBER AND CLASS ELSE FALSE FUN FOR IF NIL OR PRINT RETURN SUPER THIS TRUE VAR WHILE EOF")
+TokenType = Enum("TokenType", "LEFT_PAREN RIGHT_PAREN LEFT_BRACE RIGHT_BRACE COMMA DOT MINUS PLUS SEMICOLON SLASH STAR BANG BANG_EQUAL EQUAL EQUAL_EQUAL GREATER GREATER_EQUAL LESS LESS_EQUAL IDENTIFIER STRING NUMBER ARRAY AND CLASS ELSE FALSE FUN FOR IF NIL OR PRINT RETURN SUPER THIS TRUE VAR WHILE EOF")
 TokenChar = {'(': "LEFT_PAREN", ')': "RIGHT_PAREN", '{': "LEFT_BRACE", '}': "RIGHT_BRACE", ',': "COMMA", '.': "DOT", '-': "MINUS", '+': "PLUS", ';': "SEMICOLON",
-			 '*': "STAR", "!": "BANG", "!=": "BANG_EQUAL", "=": "EQUAL", "==": "EQUAL_EQUAL", "<": "LESS", "<=": "LESS_EQUAL", ">": "MORE", ">= ": "MORE_EQUAL", "/": "SLASH"}
+			 '*': "STAR", "!": "BANG", "!=": "BANG_EQUAL", "=": "EQUAL", "==": "EQUAL_EQUAL", "<": "LESS", "<=": "LESS_EQUAL", ">": "MORE", ">= ": "MORE_EQUAL", "/": "SLASH", "[" : "LEFT_CROTCHET", "]" : "RIGHT_CROTCHET"}
 Identifiers = {"and": "AND", "class": "CLASS", "else": "ELSE", "false": "FALSE", "for": "FOR", "fun": "FUN", "if": "IF", "nil": "NIL",
 			   "or": "OR", "print": "PRINT", "return": "RETURN", "super": "SUPER", "this": "THIS", "true": "TRUE", "var": "VAR", "while": "WHILE"}
 
@@ -285,7 +285,6 @@ class parser():
 			increment = self.expression()
 		self. consume("RIGHT_PAREN", "Expect ')' after for clauses.")
 		body = self.statement()
-
 		if increment != None:
 			body = blockStatement([body,expressionStatement(increment)])
 		if condition == None:
@@ -421,7 +420,21 @@ class parser():
 			expr = self.expression()
 			self.consume("RIGHT_PAREN", "Expect ')' after expression.")
 			return groupingExpr(expr)
+		elif self.match(["LEFT_CROTCHET"]):
+			expr = self.array()
+			self.consume("RIGHT_CROTCHET", "Expect ']' after elements.")
+			return expr
 		raise self.error(self.peek(), "Expect expression.")
+
+	def array(self):
+		array = []
+		while not self.isAtEnd() and not self.check("RIGHT_CROTCHET"):
+			expr = self.expression()
+			if type(expr) is not literalExpr:
+				raise self.error(self.peek(), "Expect expression.")
+				return
+			array.append(expr.value)
+		return literalExpr(array)
 
 	def error(self, peek, message):
 		interpreter.parseError(peek, message)
@@ -499,16 +512,22 @@ class interpreter:
 		if interpreter.hadError or interpreter.hadRuntimeError:
 			exit()
 		tokens = self.scanner.scanTokens()
-		for token in tokens:
-			if self.args.verbose:
-				print(token.toString())
+		if self.args.verbose:
+			print("======= tokens =======")
+			for token in tokens:
+					print(token.toString())
+			print("======================\n")
 		tokenParser = parser(tokens)
 		statements = tokenParser.parse()
 		if interpreter.hadError:
 			return
 		if self.args.verbose:
+			print("===== statements =====")
 			print(statements)
+			print("======================\n")
+		print("======= output =======")
 		self.interpret(statements)
+		print("======================\n")
 
 	def interpret(self, statements):
 		try:
@@ -528,6 +547,8 @@ class interpreter:
 			if len(text) > 2 and text[-2::] == ".0":
 				text = text[0:-2]
 			return text
+		if type(obj) is list:
+			return [self.stringify(item) for item in obj]
 		return str(obj)
 
 	def visitExpressionStatement(self, statement):
@@ -861,8 +882,6 @@ class pal():
 		if inputFilePath != None:
 			try:
 				self.scanner = scanner(inputFilePath)
-				if self.args.verbose:
-					print(self.scanner.source)
 				self.interpreter = interpreter(self.args, self.scanner)
 				start = timer()
 				self.interpreter.run()

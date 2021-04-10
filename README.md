@@ -8,9 +8,10 @@ Interpreter written in Python for a dynamically typed, imperative language using
 4. print statements
 5. logical operators
 6. iteration
+7. arrays
 
 ## Future Work:
-1. inputs, arrays, maps, sorting 
+1. inputs, maps, sorting 
 2. different parser implementation (LR(0), LL(1))
 3. functions
 4. cli ide
@@ -20,9 +21,10 @@ Interpreter written in Python for a dynamically typed, imperative language using
 8. generic syntax - nlp based parser
 9. lambda-calculus interpreter
 10. meta-programming parser
+11. arrays of non literal expressions eg [1+1] 
 
 ## Sample code and output:
-```python
+```
 var a = 0;
 var temp;
 
@@ -32,7 +34,7 @@ for (var b = 1; a < 100; b = temp + b) {
   a = b;
 }
 ```
-```text
+```
 VAR var None
 IDENTIFIER a None
 EQUAL = None
