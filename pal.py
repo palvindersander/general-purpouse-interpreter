@@ -169,7 +169,7 @@ class ifStatement(statement):
 		self.elseBranch = elseBranch
 	
 	def toString(self):
-		return "if " + self.condition.toString()
+		return "(if " + self.condition.toString() + " then " + self.thenBranch.toString() + " else " + self.elseBranch.toString() + ")"
 
 
 class whileStatement(statement):
@@ -182,7 +182,7 @@ class whileStatement(statement):
 		self.body = body
 
 	def toString(self):
-		return "while " + self.condition.toString()
+		return "(while " + self.condition.toString() + " " + self.body.toString() + ")"
 
 
 class printStatement(statement):
@@ -401,7 +401,27 @@ class parser():
 			operator = self.previous()
 			right = self.unary()
 			return unaryExpr(operator, right)
-		return self.primary()
+		return self.call()
+
+	def call(self):
+		expr = self.primary()
+		while True:
+			if self.match(["LEFT_PAREN"]):
+				expr = self.finishCall(expr)
+			else:
+				break
+		return expr
+
+	def finishCall(self, callee):
+		arguments = []
+		if not self.check("RIGHT_PAREN"):
+			arguments.append(self.expression())
+			while self.match(["COMMA"]):
+				if len(arguments) >== 255:
+					self.error(self.peek(), "Can't have more than 255 arguments.")
+				arguments.append(self.expression())
+		paren = self.consume("RIGHT_PAREN", "Expect ')' after arguments.")
+		return callExpr(callee, paren, arguments)
 
 	def primary(self):
 		if self.match(["FALSE"]):
@@ -523,7 +543,11 @@ class interpreter:
 			return
 		if self.args.verbose:
 			print("===== statements =====")
-			print(statements)
+			for s in statements:
+				try:
+					print(str(type(s)) + " " + s.toString())
+				except:
+					print(str(type(s)))
 			print("======================\n")
 		print("======= output =======")
 		self.interpret(statements)
@@ -550,6 +574,14 @@ class interpreter:
 		if type(obj) is list:
 			return [self.stringify(item) for item in obj]
 		return str(obj)
+	
+	def visitCallExpr(self, expression):
+		callee = self.evaluate(expression.callee)
+		arguments = []
+		for argument in expression.arguments:
+			arguments.append(self.evaluate(argument))
+		function = callee
+		return function.call(self, arguments)
 
 	def visitExpressionStatement(self, statement):
 		self.evaluate(statement.expression)
@@ -713,6 +745,8 @@ class interpreter:
 			return self.visitLogicalExpr(obj)
 		elif type(obj) is whileStatement:
 			return self.visitWhileStatement(obj)
+		elif type(obj) is callExpr:
+			return self.visitCallExpr(obj)
 
 	@staticmethod
 	def parseError(token,  message):
@@ -830,6 +864,20 @@ class variableExpr(expr):
 
 	def toString(self):
 		return "(" + self.name.toString() + ")"
+
+
+class callExpr(expr):
+	'''
+	attrs: callee(expr), paren(token), arguments(list(expr))
+	'''
+
+	def __init__(self, callee, paren, arguments):
+		self.callee = callee
+		self.paren = paren
+		self.arguments = arguments
+
+	def toString(self):
+		return "(" + self.callee.toString() + " " + self.paren.toString() + " " + str(self.arguments) + ")"
 
 
 class enviroment():
